@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 const zxcvbn = require('zxcvbn');
 
-// helper: generate a strong password from a seed (keeps determinism-ish but randomizes)
 function generateFromSeed(seed, length = 16, useSymbols = true) {
   const normalized = (seed || '').replace(/[^A-Za-z0-9]/g, '') || 'User';
   const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -9,13 +8,11 @@ function generateFromSeed(seed, length = 16, useSymbols = true) {
   const digits = '0123456789';
   const symbols = '!@#$%^&*()-_=+[]{}<>?';
   const pool = upper + lower + digits + (useSymbols ? symbols : '');
-  // start with first 3 chars derived from seed when possible
   let pw = normalized.slice(0, 3);
   const rnd = crypto.randomBytes(Math.max(length - pw.length, 1));
   for (let i = 0; i < length - pw.length; i++) {
     pw += pool.charAt(rnd[i] % pool.length);
   }
-  // ensure character class coverage
   if (!/[A-Z]/.test(pw)) pw = upper.charAt(rnd[0] % upper.length) + pw.slice(1);
   if (!/[a-z]/.test(pw)) pw = pw.slice(0,1) + lower.charAt(rnd[1] % lower.length) + pw.slice(2);
   if (!/[0-9]/.test(pw)) pw = pw.slice(0,2) + digits.charAt(rnd[2] % digits.length) + pw.slice(3);
@@ -35,7 +32,7 @@ async function checkHIBP(password) {
     headers: { 'User-Agent': 'Graduation-Project-Password-Checker' }
   });
   if (!resp || !resp.ok) {
-    // treat as not pwned on API error (fail open for privacy; adjust if you prefer fail closed)
+    // treat as not pwned on API error
     return { pwned: false, count: 0 };
   }
   const text = await resp.text();
@@ -56,7 +53,6 @@ module.exports.handler = async (event) => {
       const password = (body.password || '').toString();
       if (!password) return { statusCode: 400, body: JSON.stringify({ error: 'password_required' }) };
 
-      // compute zxcvbn and hibp in parallel
       const [z, hibp] = await Promise.all([
         zxcvbn(password),
         checkHIBP(password)
@@ -77,28 +73,30 @@ module.exports.handler = async (event) => {
     }
 
     if (action === 'suggest') {
-      // seed comes from user-provided fields (name|birth) per frontend
       const seed = (body.seed || '').toString();
-      const length = parseInt(body.length, 10) || 16;
+      let length = parseInt(body.length, 10);
       const symbols = !!body.symbols;
+
       if (!seed.trim()) return { statusCode: 400, body: JSON.stringify({ error: 'seed_required' }) };
 
-      // Try several times to produce a non-pwned suggestion
+      // enforce valid length and clamp to a safe range
+      if (!Number.isFinite(length)) length = 16;
+      length = Math.max(8, Math.min(64, length));
+
       let suggestion = null;
       let suggestedScore = 0;
       for (let i = 0; i < 8; i++) {
-        // mix seed with iteration to produce variety
-        const cand = generateFromSeed(seed + '|' + i, length, symbols);
+        const cand = generateFromSeed(seed + '|' + i, length, symbols).slice(0, length);
         const chk = await checkHIBP(cand).catch(() => ({ pwned: false }));
         if (!chk.pwned) {
-          suggestion = cand;
+          suggestion = cand; // already sliced to exact length
           suggestedScore = zxcvbn(cand).score;
           break;
         }
       }
-      // fallback: random strong password
       if (!suggestion) {
-        suggestion = generateFromSeed(seed + '|' + Math.random().toString(36), length, symbols);
+        const fallback = generateFromSeed(seed + '|' + Math.random().toString(36), length, symbols).slice(0, length);
+        suggestion = fallback;
         suggestedScore = zxcvbn(suggestion).score;
       }
 
@@ -106,6 +104,8 @@ module.exports.handler = async (event) => {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
         body: JSON.stringify({
+          requested_length: parseInt(body.length, 10),
+          used_length: length,
           suggested_password: suggestion,
           suggested_password_score: suggestedScore
         })
@@ -114,7 +114,6 @@ module.exports.handler = async (event) => {
 
     return { statusCode: 400, body: JSON.stringify({ error: 'unknown_action' }) };
   } catch (e) {
-    console.error('Function error:', e);
     return { statusCode: 500, body: JSON.stringify({ error: 'internal_error', details: e.message }) };
   }
 };
