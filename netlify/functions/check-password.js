@@ -8,16 +8,33 @@ function generateFromSeed(seed, length = 16, useSymbols = true) {
   const digits = '0123456789';
   const symbols = '!@#$%^&*()-_=+[]{}<>?';
   const pool = upper + lower + digits + (useSymbols ? symbols : '');
+
+  // ابدأ ببعض أحرف من الـ seed
   let pw = normalized.slice(0, 3);
-  const rnd = crypto.randomBytes(Math.max(length - pw.length, 1));
-  for (let i = 0; i < length - pw.length; i++) {
+
+  // أكمل للطول المطلوب
+  const need = Math.max(length - pw.length, 0);
+  const rnd = crypto.randomBytes(Math.max(need, 1));
+  for (let i = 0; i < need; i++) {
     pw += pool.charAt(rnd[i] % pool.length);
   }
+
+  // ضمان وجود فئات الأحرف
   if (!/[A-Z]/.test(pw)) pw = upper.charAt(rnd[0] % upper.length) + pw.slice(1);
   if (!/[a-z]/.test(pw)) pw = pw.slice(0,1) + lower.charAt(rnd[1] % lower.length) + pw.slice(2);
   if (!/[0-9]/.test(pw)) pw = pw.slice(0,2) + digits.charAt(rnd[2] % digits.length) + pw.slice(3);
-  if (useSymbols && !/[!@#$%^&*()\-_=+\[\]{}<>?]/.test(pw)) pw = pw.slice(0,3) + symbols.charAt(rnd[3] % symbols.length) + pw.slice(4);
-  return pw.slice(0, length);
+  if (useSymbols && !/[!@#$%^&*()\-_=+\[\]{}<>?]/.test(pw))
+    pw = pw.slice(0,3) + symbols.charAt(rnd[3] % symbols.length) + pw.slice(4);
+
+  // تنظيف وضمان الطول الدقيق
+  pw = pw.replace(/\s/g, '');
+  while (pw.length < length) {
+    const extra = crypto.randomBytes(1)[0];
+    pw += pool.charAt(extra % pool.length);
+  }
+  if (pw.length > length) pw = pw.slice(0, length);
+
+  return pw;
 }
 
 function sha1Hex(input) {
@@ -32,7 +49,6 @@ async function checkHIBP(password) {
     headers: { 'User-Agent': 'Graduation-Project-Password-Checker' }
   });
   if (!resp || !resp.ok) {
-    // treat as not pwned on API error
     return { pwned: false, count: 0 };
   }
   const text = await resp.text();
@@ -43,7 +59,9 @@ async function checkHIBP(password) {
 }
 
 module.exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') return { statusCode: 405, body: JSON.stringify({ error: 'method_not_allowed' }) };
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: JSON.stringify({ error: 'method_not_allowed' }) };
+  }
 
   try {
     const body = JSON.parse(event.body || '{}');
@@ -65,9 +83,7 @@ module.exports.handler = async (event) => {
           pwned: hibp.pwned,
           pwned_count: hibp.count,
           strength_score: z.score,
-          strength_feedback: z.feedback,
-          suggested_password: null,
-          suggested_password_score: 0
+          strength_feedback: z.feedback
         })
       };
     }
@@ -78,25 +94,24 @@ module.exports.handler = async (event) => {
       const symbols = !!body.symbols;
 
       if (!seed.trim()) return { statusCode: 400, body: JSON.stringify({ error: 'seed_required' }) };
-
-      // enforce valid length and clamp to a safe range
       if (!Number.isFinite(length)) length = 16;
       length = Math.max(8, Math.min(64, length));
 
       let suggestion = null;
       let suggestedScore = 0;
+
       for (let i = 0; i < 8; i++) {
-        const cand = generateFromSeed(seed + '|' + i, length, symbols).slice(0, length);
+        const cand = generateFromSeed(seed + '|' + i, length, symbols);
         const chk = await checkHIBP(cand).catch(() => ({ pwned: false }));
         if (!chk.pwned) {
-          suggestion = cand; // already sliced to exact length
+          suggestion = cand;
           suggestedScore = zxcvbn(cand).score;
           break;
         }
       }
+
       if (!suggestion) {
-        const fallback = generateFromSeed(seed + '|' + Math.random().toString(36), length, symbols).slice(0, length);
-        suggestion = fallback;
+        suggestion = generateFromSeed(seed + '|' + Math.random().toString(36), length, symbols);
         suggestedScore = zxcvbn(suggestion).score;
       }
 
@@ -113,6 +128,7 @@ module.exports.handler = async (event) => {
     }
 
     return { statusCode: 400, body: JSON.stringify({ error: 'unknown_action' }) };
+
   } catch (e) {
     return { statusCode: 500, body: JSON.stringify({ error: 'internal_error', details: e.message }) };
   }
