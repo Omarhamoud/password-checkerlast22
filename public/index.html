@@ -51,7 +51,7 @@
       <button id="checkBtn">Check Now</button>
     </div>
 
-    <!-- RESULT FOR CHECK (Placed directly under password as requested) -->
+    <!-- RESULT FOR CHECK (directly under password) -->
     <div id="result" class="result" style="display:none">
       <div id="pwnedStatus" class="small"></div>
 
@@ -66,7 +66,7 @@
       <div id="feedback" class="feedback"></div>
     </div>
 
-    <!-- SUGGESTION SECTION: user supplies data (Name, Birthdate) and suggestion appears directly under it -->
+    <!-- SUGGESTION SECTION from user data -->
     <section style="margin-top:18px">
       <h3 style="margin:0 0 8px">Suggest a strong password (from your data)</h3>
       <div class="row">
@@ -120,7 +120,6 @@
   const pwLengthSelect = document.getElementById('pwLength');
   const togglePw = document.getElementById('togglePw');
 
-  // helper
   function setStrength(score) {
     const pct = Math.round((score / 4) * 100);
     bar.style.width = pct + '%';
@@ -141,10 +140,14 @@
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body)
     });
+    if (!resp.ok) {
+      const t = await resp.text();
+      throw new Error('Server error: ' + t);
+    }
     return resp.json();
   }
 
-  // Check password (uses action 'test')
+  // Check password (action 'test')
   checkBtn.addEventListener('click', async () => {
     const v = pw.value;
     if (!v) return alert('Enter a password');
@@ -163,8 +166,6 @@
         pwnedStatus.innerHTML = `<strong class="status-ok">✅ This password was not found in known data breaches.</strong>`;
         pwnedDetails.innerHTML = '';
       }
-
-      // feedback
       let feedbackMsg = '';
       if (data.strength_feedback && data.strength_feedback.warning) {
         feedbackMsg = data.strength_feedback.warning;
@@ -172,7 +173,6 @@
         feedbackMsg = "Suggestions to improve: " + data.strength_feedback.suggestions.join(' - ');
       }
       feedbackEl.textContent = feedbackMsg;
-
     } catch (e) {
       alert('Error: ' + e.message);
     } finally {
@@ -181,7 +181,7 @@
     }
   });
 
-  // Suggest password (uses action 'suggest' and uses name + birth as seed)
+  // Suggest password (action 'suggest' using name+birth as seed)
   suggestBtn.addEventListener('click', async () => {
     const name = nameEl.value.trim();
     const birth = birthEl.value.trim();
@@ -197,7 +197,13 @@
       if (data.suggested_password) {
         suggestBox.style.display = 'block';
         suggested.value = data.suggested_password;
-        suggestInfo.textContent = `Strength: ${data.suggested_password_score}/4`;
+
+        // Diagnostic line to ensure lengths match selection
+        const generatedLen = (data.suggested_password || '').length;
+        const req = (typeof data.requested_length === 'number') ? data.requested_length : length;
+        const used = data.used_length || length;
+        suggestInfo.textContent =
+          `Strength: ${data.suggested_password_score}/4 · Requested: ${req} · Used: ${used} · Generated: ${generatedLen}`;
       } else {
         alert('Could not generate suggestion. Try different inputs.');
       }
