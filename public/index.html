@@ -6,7 +6,6 @@
 <title>Password Security Analyzer (Graduation Project)</title>
 <style>
   :root{--bg:#0f1724;--card:#0b1220;--accent:#6ee7b7;--muted:#94a3b8;--danger:#fb7185;--glass:rgba(255,255,255,0.03)}
-  /* Using a clean, modern font like Inter */
   body{font-family:'Inter', system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; background:linear-gradient(180deg,#071021 0%, #081827 100%); color:#e6eef8; margin:0; padding:28px; display:flex; align-items:flex-start; justify-content:center; min-height:100vh}
   .card{width:100%;max-width:760px;background:var(--card);border-radius:12px;padding:20px 30px;box-shadow:0 6px 30px rgba(2,6,23,0.6);backdrop-filter:blur(4px)}
   h1{margin:0 0 8px;font-size:22px}
@@ -14,16 +13,15 @@
   label{display:block;margin-bottom:8px;color:var(--muted);font-size:13px;font-weight:600;}
   .row{display:flex;gap:12px;align-items:center}
   .input-wrapper{flex:1;position:relative}
-  /* Adjusted padding for LTR layout */
   input[type="password"], input[type="text"]{width:100%;box-sizing:border-box;padding:12px 14px; padding-right: 45px; border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:var(--glass);color:inherit;font-size:15px}
-  /* Positioned toggle button on the right for LTR */
   #togglePw{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;opacity:0.6;font-size: 20px; padding: 5px;}
   #togglePw:hover{opacity:1}
   button{background:linear-gradient(90deg,var(--accent),#34d399);border:none;padding:12px 16px;border-radius:10px;color:#042018;font-weight:600;cursor:pointer;font-family:inherit;font-size:15px;}
+  button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
   button:disabled{opacity:0.5;cursor:not-allowed}
   .meta{margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
   .chip{background:rgba(255,255,255,0.03);padding:8px 10px;border-radius:10px;font-size:13px;color:var(--muted)}
-  .result{margin-top:18px;padding:14px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.012), transparent);border:1px solid rgba(255,255,255,0.02)}
+  .result{margin-top:12px;padding:14px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.012), transparent);border:1px solid rgba(255,255,255,0.02)}
   .status-ok{color:#a7f3d0}
   .status-bad{color:var(--danger)}
   .strength-bar{height:10px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;margin-top:8px}
@@ -41,8 +39,9 @@
 <body>
   <div class="card" role="main" aria-labelledby="title">
     <h1 id="title">Password Security Analyzer</h1>
-    <p class="lead">A security tool to analyze password strength and check against known data breaches.</p>
+    <p class="lead">Analyze password strength and check it against known data breaches.</p>
 
+    <!-- PASSWORD INPUT -->
     <label for="pw">Password to Check</label>
     <div class="row">
       <div class="input-wrapper">
@@ -51,22 +50,11 @@
       </div>
       <button id="checkBtn">Check Now</button>
     </div>
-    
-    <div class="options small">
-      <label for="pwLength" style="margin-bottom:0;">Suggested Password Length:</label>
-      <select id="pwLength" style="background:var(--glass);color:inherit;border:none;padding:4px;border-radius:4px;">
-        <option value="12">12 Chars (Good)</option>
-        <option value="16" selected>16 Chars (Strong)</option>
-        <option value="20">20 Chars (Very Secure)</option>
-      </select>
-    </div>
 
-    <div class="meta">
-      <div class="chip small">Using k-anonymity — Your full password is never sent anywhere</div>
-    </div>
-
+    <!-- RESULT FOR CHECK (Placed directly under password as requested) -->
     <div id="result" class="result" style="display:none">
       <div id="pwnedStatus" class="small"></div>
+
       <div style="margin-top:10px">
         <div class="small">Strength Meter (Zxcvbn Score)</div>
         <div class="strength-bar" aria-hidden="true"><div id="strengthFill" class="strength-fill"></div></div>
@@ -75,98 +63,99 @@
 
       <div id="pwnedDetails" style="margin-top:12px"></div>
 
-      <div class="suggestion" id="suggestionBox" style="display:none">
-        <input id="suggestedPw" readonly />
-        <button id="copyBtn">Copy</button>
+      <div id="feedback" class="feedback"></div>
+    </div>
+
+    <!-- SUGGESTION SECTION: user supplies data (Name, Birthdate) and suggestion appears directly under it -->
+    <section style="margin-top:18px">
+      <h3 style="margin:0 0 8px">Suggest a strong password (from your data)</h3>
+      <div class="row">
+        <input id="name" type="text" placeholder="Name (e.g., Ahmad)" />
+        <input id="birth" type="text" placeholder="Birthdate (e.g., 2001-05-14)" />
+      </div>
+      <div class="options">
+        <label for="pwLength" style="margin-bottom:0;color:var(--muted);font-size:13px;font-weight:600">Suggested length:</label>
+        <select id="pwLength" style="background:var(--glass);color:inherit;border:none;padding:6px;border-radius:6px;">
+          <option value="12">12</option>
+          <option value="16" selected>16</option>
+          <option value="20">20</option>
+        </select>
+        <button id="suggestBtn" class="secondary">Suggest password</button>
       </div>
 
-      <div id="feedback" class="feedback"></div>
+      <!-- Suggestion output (directly under the data inputs) -->
+      <div id="suggestBox" class="result" style="display:none;margin-top:12px">
+        <div class="suggestion">
+          <input id="suggested" readonly />
+          <button id="copyBtn">Copy</button>
+        </div>
+        <div id="suggestInfo" class="small" style="margin-top:8px"></div>
+      </div>
+    </section>
+
+    <div class="meta" style="margin-top:18px">
+      <div class="chip small">Using k-anonymity — Your full password is never sent anywhere</div>
     </div>
   </div>
 
 <script>
-  // --- 1. DOM Element Selection ---
-  const checkBtn = document.getElementById('checkBtn');
-  const pwInput = document.getElementById('pw');
-  const togglePw = document.getElementById('togglePw');
-  const pwLengthSelect = document.getElementById('pwLength');
-  
-  const resultEl = document.getElementById('result');
+  // DOM
+  const pw = document.getElementById('pw');
+  const bar = document.getElementById('strengthFill');
+  const testResult = document.getElementById('result');
   const pwnedStatus = document.getElementById('pwnedStatus');
   const pwnedDetails = document.getElementById('pwnedDetails');
-  const strengthFill = document.getElementById('strengthFill');
   const strengthText = document.getElementById('strengthText');
-  const suggestionBox = document.getElementById('suggestionBox');
-  const suggestedPw = document.getElementById('suggestedPw');
-  const copyBtn = document.getElementById('copyBtn');
   const feedbackEl = document.getElementById('feedback');
 
-  // --- 2. Helper Functions ---
+  const nameEl = document.getElementById('name');
+  const birthEl = document.getElementById('birth');
+  const suggestBox = document.getElementById('suggestBox');
+  const suggested = document.getElementById('suggested');
+  const suggestInfo = document.getElementById('suggestInfo');
 
-  /**
-   * Updates the strength bar and text based on the score (0-4)
-   * @param {number} score - The zxcvbn score from 0 to 4
-   */
+  const checkBtn = document.getElementById('checkBtn');
+  const suggestBtn = document.getElementById('suggestBtn');
+  const copyBtn = document.getElementById('copyBtn');
+  const pwLengthSelect = document.getElementById('pwLength');
+  const togglePw = document.getElementById('togglePw');
+
+  // helper
   function setStrength(score) {
     const pct = Math.round((score / 4) * 100);
-    strengthFill.style.width = pct + '%';
-    // Change bar color based on strength
+    bar.style.width = pct + '%';
     if (score < 2) {
-      strengthFill.style.background = 'linear-gradient(90deg,#ef4444,#f97316)';
+      bar.style.background = 'linear-gradient(90deg,#ef4444,#f97316)';
     } else if (score < 4) {
-      strengthFill.style.background = 'linear-gradient(90deg,#f59e0b,#eab308,#84cc16)';
+      bar.style.background = 'linear-gradient(90deg,#f59e0b,#eab308,#84cc16)';
     } else {
-      strengthFill.style.background = 'linear-gradient(90deg,#84cc16,#22c55e)';
+      bar.style.background = 'linear-gradient(90deg,#84cc16,#22c55e)';
     }
     const labels = ['Very Weak','Weak','Medium','Strong','Very Strong'];
     strengthText.textContent = `Score: ${labels[score] || 'Unknown'} (${score}/4)`;
   }
 
-  /**
-   * Calls the backend Netlify Function
-   * @param {string} password - The password to check
-   * @param {number} length - The desired length for the suggested password
-   */
-  async function checkPasswordOnServer(password, length) {
+  async function postJSON(body) {
     const resp = await fetch('/.netlify/functions/check-password', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      // Send both the password and the desired length
-      body: JSON.stringify({ password: password, length: length })
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
     });
-    if (!resp.ok) {
-      const t = await resp.text();
-      throw new Error('Server error: ' + t);
-    }
     return resp.json();
   }
 
-  // --- 3. Event Listeners ---
-
-  // Main Event: "Check Now" button click
+  // Check password (uses action 'test')
   checkBtn.addEventListener('click', async () => {
-    const pw = pwInput.value; // Don't trim() to allow spaces if the user intends it
-    if (!pw) { alert('Please enter a password to check'); return; }
-    
-    // Get the desired length from the dropdown
-    const desiredLength = parseInt(pwLengthSelect.value, 10);
-
-    // Disable button and show loading state
+    const v = pw.value;
+    if (!v) return alert('Enter a password');
     checkBtn.disabled = true;
     checkBtn.textContent = 'Checking...';
-    resultEl.style.display = 'none';
-    suggestionBox.style.display = 'none';
+    testResult.style.display = 'none';
     feedbackEl.textContent = '';
-
     try {
-      // Call the backend function and wait for the response
-      const data = await checkPasswordOnServer(pw, desiredLength);
-      
-      // Display results
-      resultEl.style.display = 'block';
+      const data = await postJSON({ action: 'test', password: v });
+      testResult.style.display = 'block';
       setStrength(data.strength_score ?? 0);
-
-      // 1. Pwned Check Result
       if (data.pwned) {
         pwnedStatus.innerHTML = `<strong class="status-bad">⚠️ This password has been found in a data breach!</strong>`;
         pwnedDetails.innerHTML = `<div class="small">Found approximately <strong>${data.pwned_count ?? 'N/A'}</strong> times. We strongly recommend changing it.</div>`;
@@ -175,15 +164,7 @@
         pwnedDetails.innerHTML = '';
       }
 
-      // 2. Display Suggested Password
-      if (data.suggested_password) {
-        suggestionBox.style.display = 'flex';
-        suggestedPw.value = data.suggested_password;
-      } else {
-        suggestionBox.style.display = 'none';
-      }
-
-      // 3. Display Feedback and Suggestions
+      // feedback
       let feedbackMsg = '';
       if (data.strength_feedback && data.strength_feedback.warning) {
         feedbackMsg = data.strength_feedback.warning;
@@ -192,30 +173,57 @@
       }
       feedbackEl.textContent = feedbackMsg;
 
-    } catch (err) {
-      alert('Error contacting server: ' + err.message);
+    } catch (e) {
+      alert('Error: ' + e.message);
     } finally {
-      // Re-enable the button regardless of success or failure
       checkBtn.disabled = false;
       checkBtn.textContent = 'Check Now';
     }
   });
 
-  // "Copy" button click
-  copyBtn.addEventListener('click', async () => {
+  // Suggest password (uses action 'suggest' and uses name + birth as seed)
+  suggestBtn.addEventListener('click', async () => {
+    const name = nameEl.value.trim();
+    const birth = birthEl.value.trim();
+    if (!name && !birth) return alert('Enter name and/or birthdate to seed suggestion');
+    suggestBtn.disabled = true;
+    suggestBtn.textContent = 'Generating...';
+    suggestBox.style.display = 'none';
+    suggestInfo.textContent = '';
     try {
-      await navigator.clipboard.writeText(suggestedPw.value);
-      copyBtn.textContent = 'Copied!';
-      setTimeout(()=>copyBtn.textContent = 'Copy', 2000);
+      const seed = `${name}|${birth}`;
+      const length = parseInt(pwLengthSelect.value, 10) || 16;
+      const data = await postJSON({ action: 'suggest', seed, length, symbols: true });
+      if (data.suggested_password) {
+        suggestBox.style.display = 'block';
+        suggested.value = data.suggested_password;
+        suggestInfo.textContent = `Strength: ${data.suggested_password_score}/4`;
+      } else {
+        alert('Could not generate suggestion. Try different inputs.');
+      }
     } catch (e) {
-      alert('Failed to copy: ' + e.message);
+      alert('Error: ' + e.message);
+    } finally {
+      suggestBtn.disabled = false;
+      suggestBtn.textContent = 'Suggest password';
     }
   });
 
-  // "Show/Hide" toggle button click
+  // copy
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(suggested.value);
+      copyBtn.textContent = 'Copied!';
+      setTimeout(()=>copyBtn.textContent = 'Copy', 2000);
+    } catch (e) {
+      alert('Copy failed: ' + e.message);
+    }
+  });
+
+  // toggle pw
   togglePw.addEventListener('click', () => {
-    const isPassword = pwInput.type === 'password';
-    pwInput.type = isPassword ? 'text' : 'password';
+    const isPassword = pw.type === 'password';
+    pw.type = isPassword ? 'text' : 'password';
     togglePw.textContent = isPassword ? '🙈' : '👁️';
   });
 </script>
