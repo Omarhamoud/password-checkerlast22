@@ -9,24 +9,24 @@ function generateFromSeed(seed, length = 16, useSymbols = true) {
   const symbols = '!@#$%^&*()-_=+[]{}<>?';
   const pool = upper + lower + digits + (useSymbols ? symbols : '');
 
-  // ابدأ ببعض أحرف من الـ seed
+  // start with small portion of seed
   let pw = normalized.slice(0, 3);
 
-  // أكمل للطول المطلوب
+  // fill to requested length
   const need = Math.max(length - pw.length, 0);
   const rnd = crypto.randomBytes(Math.max(need, 1));
   for (let i = 0; i < need; i++) {
     pw += pool.charAt(rnd[i] % pool.length);
   }
 
-  // ضمان وجود فئات الأحرف
+  // ensure classes
   if (!/[A-Z]/.test(pw)) pw = upper.charAt(rnd[0] % upper.length) + pw.slice(1);
   if (!/[a-z]/.test(pw)) pw = pw.slice(0,1) + lower.charAt(rnd[1] % lower.length) + pw.slice(2);
   if (!/[0-9]/.test(pw)) pw = pw.slice(0,2) + digits.charAt(rnd[2] % digits.length) + pw.slice(3);
   if (useSymbols && !/[!@#$%^&*()\-_=+\[\]{}<>?]/.test(pw))
     pw = pw.slice(0,3) + symbols.charAt(rnd[3] % symbols.length) + pw.slice(4);
 
-  // تنظيف وضمان الطول الدقيق
+  // enforce exact length
   pw = pw.replace(/\s/g, '');
   while (pw.length < length) {
     const extra = crypto.randomBytes(1)[0];
@@ -104,7 +104,7 @@ module.exports.handler = async (event) => {
         const cand = generateFromSeed(seed + '|' + i, length, symbols);
         const chk = await checkHIBP(cand).catch(() => ({ pwned: false }));
         if (!chk.pwned) {
-          suggestion = cand;
+          suggestion = cand; // exact length already enforced
           suggestedScore = zxcvbn(cand).score;
           break;
         }
