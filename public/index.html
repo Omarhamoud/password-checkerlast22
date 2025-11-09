@@ -1,101 +1,223 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" dir="ltr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Password Strength & Suggestion</title>
-  <style>
-    body{font-family:Arial, sans-serif;background:#f5f5f5;margin:0}
-    .wrap{max-width:520px;margin:24px auto;background:#fff;padding:18px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.08)}
-    h1{margin:0 0 8px}
-    section{margin-top:18px}
-    input,button{width:100%;padding:10px;margin:8px 0;font-size:16px}
-    button{background:#0ea5e9;color:#fff;border:0;border-radius:8px;cursor:pointer}
-    #strength{height:10px;background:#ddd;border-radius:6px;overflow:hidden}
-    #bar{height:100%;width:0;background:#ef4444;transition:width .25s}
-    .result{margin-top:8px;font-size:14px}
-    .row{display:flex;gap:8px}
-    .row input{flex:1}
-  </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Password Security Analyzer (Graduation Project)</title>
+<style>
+  :root{--bg:#0f1724;--card:#0b1220;--accent:#6ee7b7;--muted:#94a3b8;--danger:#fb7185;--glass:rgba(255,255,255,0.03)}
+  /* Using a clean, modern font like Inter */
+  body{font-family:'Inter', system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; background:linear-gradient(180deg,#071021 0%, #081827 100%); color:#e6eef8; margin:0; padding:28px; display:flex; align-items:flex-start; justify-content:center; min-height:100vh}
+  .card{width:100%;max-width:760px;background:var(--card);border-radius:12px;padding:20px 30px;box-shadow:0 6px 30px rgba(2,6,23,0.6);backdrop-filter:blur(4px)}
+  h1{margin:0 0 8px;font-size:22px}
+  p.lead{margin:0 0 18px;color:var(--muted)}
+  label{display:block;margin-bottom:8px;color:var(--muted);font-size:13px;font-weight:600;}
+  .row{display:flex;gap:12px;align-items:center}
+  .input-wrapper{flex:1;position:relative}
+  /* Adjusted padding for LTR layout */
+  input[type="password"], input[type="text"]{width:100%;box-sizing:border-box;padding:12px 14px; padding-right: 45px; border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:var(--glass);color:inherit;font-size:15px}
+  /* Positioned toggle button on the right for LTR */
+  #togglePw{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;opacity:0.6;font-size: 20px; padding: 5px;}
+  #togglePw:hover{opacity:1}
+  button{background:linear-gradient(90deg,var(--accent),#34d399);border:none;padding:12px 16px;border-radius:10px;color:#042018;font-weight:600;cursor:pointer;font-family:inherit;font-size:15px;}
+  button:disabled{opacity:0.5;cursor:not-allowed}
+  .meta{margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .chip{background:rgba(255,255,255,0.03);padding:8px 10px;border-radius:10px;font-size:13px;color:var(--muted)}
+  .result{margin-top:18px;padding:14px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.012), transparent);border:1px solid rgba(255,255,255,0.02)}
+  .status-ok{color:#a7f3d0}
+  .status-bad{color:var(--danger)}
+  .strength-bar{height:10px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;margin-top:8px}
+  .strength-fill{height:100%;width:0%;transition:width .4s ease; background:linear-gradient(90deg,#f97316,#f59e0b,#84cc16)}
+  .suggestion{margin-top:12px;display:flex;gap:10px;align-items:center}
+  .suggestion input{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+  .small{font-size:13px;color:var(--muted)}
+  .feedback{margin-top:10px;color:var(--muted);font-size:13px}
+  .options{display:flex;gap:10px;align-items:center;margin-top:10px;}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="wrap">
-    <h1>Password Analyzer</h1>
+  <div class="card" role="main" aria-labelledby="title">
+    <h1 id="title">Password Security Analyzer</h1>
+    <p class="lead">A security tool to analyze password strength and check against known data breaches.</p>
 
-    <section>
-      <h3>Test your password</h3>
-      <input id="pw" type="password" placeholder="Enter password" />
-      <button id="checkBtn">Check</button>
-      <div id="strength"><div id="bar"></div></div>
-      <div id="testResult" class="result"></div>
-    </section>
-
-    <section>
-      <h3>Suggest a strong password</h3>
-      <div class="row">
-        <input id="name" type="text" placeholder="Your name (e.g., Ahmad)" />
-        <input id="birth" type="text" placeholder="Birthdate (e.g., 2001-05-14)" />
+    <label for="pw">Password to Check</label>
+    <div class="row">
+      <div class="input-wrapper">
+        <input id="pw" type="password" placeholder="Enter your password here..." aria-label="Password" />
+        <button id="togglePw" aria-label="Show or hide password">👁️</button>
       </div>
-      <button id="suggestBtn">Suggest password</button>
+      <button id="checkBtn">Check Now</button>
+    </div>
+    
+    <div class="options small">
+      <label for="pwLength" style="margin-bottom:0;">Suggested Password Length:</label>
+      <select id="pwLength" style="background:var(--glass);color:inherit;border:none;padding:4px;border-radius:4px;">
+        <option value="12">12 Chars (Good)</option>
+        <option value="16" selected>16 Chars (Strong)</option>
+        <option value="20">20 Chars (Very Secure)</option>
+      </select>
+    </div>
 
-      <div id="suggestBox" style="display:none">
-        <div class="row">
-          <input id="suggested" readonly />
-          <button id="copyBtn">Copy</button>
-        </div>
-        <div id="suggestInfo" class="result"></div>
+    <div class="meta">
+      <div class="chip small">Using k-anonymity — Your full password is never sent anywhere</div>
+    </div>
+
+    <div id="result" class="result" style="display:none">
+      <div id="pwnedStatus" class="small"></div>
+      <div style="margin-top:10px">
+        <div class="small">Strength Meter (Zxcvbn Score)</div>
+        <div class="strength-bar" aria-hidden="true"><div id="strengthFill" class="strength-fill"></div></div>
+        <div id="strengthText" class="small" style="margin-top:6px"></div>
       </div>
-    </section>
+
+      <div id="pwnedDetails" style="margin-top:12px"></div>
+
+      <div class="suggestion" id="suggestionBox" style="display:none">
+        <input id="suggestedPw" readonly />
+        <button id="copyBtn">Copy</button>
+      </div>
+
+      <div id="feedback" class="feedback"></div>
+    </div>
   </div>
 
 <script>
-const pw = document.getElementById('pw');
-const bar = document.getElementById('bar');
-const testResult = document.getElementById('testResult');
+  // --- 1. DOM Element Selection ---
+  const checkBtn = document.getElementById('checkBtn');
+  const pwInput = document.getElementById('pw');
+  const togglePw = document.getElementById('togglePw');
+  const pwLengthSelect = document.getElementById('pwLength');
+  
+  const resultEl = document.getElementById('result');
+  const pwnedStatus = document.getElementById('pwnedStatus');
+  const pwnedDetails = document.getElementById('pwnedDetails');
+  const strengthFill = document.getElementById('strengthFill');
+  const strengthText = document.getElementById('strengthText');
+  const suggestionBox = document.getElementById('suggestionBox');
+  const suggestedPw = document.getElementById('suggestedPw');
+  const copyBtn = document.getElementById('copyBtn');
+  const feedbackEl = document.getElementById('feedback');
 
-document.getElementById('checkBtn').onclick = async () => {
-  const v = pw.value.trim();
-  if (!v) return alert('Enter a password');
-  const resp = await fetch('/.netlify/functions/check-password', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ action:'test', password:v })
-  });
-  const data = await resp.json();
-  bar.style.width = (data.strength_score * 25) + '%';
-  bar.style.background = ['#ef4444','#f59e0b','#eab308','#22c55e','#16a34a'][data.strength_score] || '#ddd';
-  let msg = `Strength: ${data.strength_score}/4`;
-  if (data.pwned) msg += `<br>⚠️ Found in breaches (${data.pwned_count} times)`;
-  testResult.innerHTML = msg;
-};
+  // --- 2. Helper Functions ---
 
-const nameEl = document.getElementById('name');
-const birthEl = document.getElementById('birth');
-const suggestBox = document.getElementById('suggestBox');
-const suggested = document.getElementById('suggested');
-const suggestInfo = document.getElementById('suggestInfo');
-
-document.getElementById('suggestBtn').onclick = async () => {
-  const seed = (nameEl.value.trim() || '') + '|' + (birthEl.value.trim() || '');
-  if (!seed.replace('|','')) return alert('Enter name and/or birthdate to seed the suggestion');
-  const resp = await fetch('/.netlify/functions/check-password', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ action:'suggest', seed, length:16, symbols:true })
-  });
-  const data = await resp.json();
-  if (data.suggested_password) {
-    suggestBox.style.display = 'block';
-    suggested.value = data.suggested_password;
-    suggestInfo.textContent = `Strength: ${data.suggested_password_score}/4`;
-  } else {
-    alert('Could not generate a suggestion, try different inputs.');
+  /**
+   * Updates the strength bar and text based on the score (0-4)
+   * @param {number} score - The zxcvbn score from 0 to 4
+   */
+  function setStrength(score) {
+    const pct = Math.round((score / 4) * 100);
+    strengthFill.style.width = pct + '%';
+    // Change bar color based on strength
+    if (score < 2) {
+      strengthFill.style.background = 'linear-gradient(90deg,#ef4444,#f97316)';
+    } else if (score < 4) {
+      strengthFill.style.background = 'linear-gradient(90deg,#f59e0b,#eab308,#84cc16)';
+    } else {
+      strengthFill.style.background = 'linear-gradient(90deg,#84cc16,#22c55e)';
+    }
+    const labels = ['Very Weak','Weak','Medium','Strong','Very Strong'];
+    strengthText.textContent = `Score: ${labels[score] || 'Unknown'} (${score}/4)`;
   }
-};
 
-document.getElementById('copyBtn').onclick = async () => {
-  try { await navigator.clipboard.writeText(suggested.value); alert('Copied'); }
-  catch { suggested.select(); document.execCommand('copy'); alert('Copied'); }
-};
+  /**
+   * Calls the backend Netlify Function
+   * @param {string} password - The password to check
+   * @param {number} length - The desired length for the suggested password
+   */
+  async function checkPasswordOnServer(password, length) {
+    const resp = await fetch('/.netlify/functions/check-password', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      // Send both the password and the desired length
+      body: JSON.stringify({ password: password, length: length })
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      throw new Error('Server error: ' + t);
+    }
+    return resp.json();
+  }
+
+  // --- 3. Event Listeners ---
+
+  // Main Event: "Check Now" button click
+  checkBtn.addEventListener('click', async () => {
+    const pw = pwInput.value; // Don't trim() to allow spaces if the user intends it
+    if (!pw) { alert('Please enter a password to check'); return; }
+    
+    // Get the desired length from the dropdown
+    const desiredLength = parseInt(pwLengthSelect.value, 10);
+
+    // Disable button and show loading state
+    checkBtn.disabled = true;
+    checkBtn.textContent = 'Checking...';
+    resultEl.style.display = 'none';
+    suggestionBox.style.display = 'none';
+    feedbackEl.textContent = '';
+
+    try {
+      // Call the backend function and wait for the response
+      const data = await checkPasswordOnServer(pw, desiredLength);
+      
+      // Display results
+      resultEl.style.display = 'block';
+      setStrength(data.strength_score ?? 0);
+
+      // 1. Pwned Check Result
+      if (data.pwned) {
+        pwnedStatus.innerHTML = `<strong class="status-bad">⚠️ This password has been found in a data breach!</strong>`;
+        pwnedDetails.innerHTML = `<div class="small">Found approximately <strong>${data.pwned_count ?? 'N/A'}</strong> times. We strongly recommend changing it.</div>`;
+      } else {
+        pwnedStatus.innerHTML = `<strong class="status-ok">✅ This password was not found in known data breaches.</strong>`;
+        pwnedDetails.innerHTML = '';
+      }
+
+      // 2. Display Suggested Password
+      if (data.suggested_password) {
+        suggestionBox.style.display = 'flex';
+        suggestedPw.value = data.suggested_password;
+      } else {
+        suggestionBox.style.display = 'none';
+      }
+
+      // 3. Display Feedback and Suggestions
+      let feedbackMsg = '';
+      if (data.strength_feedback && data.strength_feedback.warning) {
+        feedbackMsg = data.strength_feedback.warning;
+      } else if (data.strength_feedback && data.strength_feedback.suggestions && data.strength_feedback.suggestions.length > 0) {
+        feedbackMsg = "Suggestions to improve: " + data.strength_feedback.suggestions.join(' - ');
+      }
+      feedbackEl.textContent = feedbackMsg;
+
+    } catch (err) {
+      alert('Error contacting server: ' + err.message);
+    } finally {
+      // Re-enable the button regardless of success or failure
+      checkBtn.disabled = false;
+      checkBtn.textContent = 'Check Now';
+    }
+  });
+
+  // "Copy" button click
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(suggestedPw.value);
+      copyBtn.textContent = 'Copied!';
+      setTimeout(()=>copyBtn.textContent = 'Copy', 2000);
+    } catch (e) {
+      alert('Failed to copy: ' + e.message);
+    }
+  });
+
+  // "Show/Hide" toggle button click
+  togglePw.addEventListener('click', () => {
+    const isPassword = pwInput.type === 'password';
+    pwInput.type = isPassword ? 'text' : 'password';
+    togglePw.textContent = isPassword ? '🙈' : '👁️';
+  });
 </script>
 </body>
 </html>
