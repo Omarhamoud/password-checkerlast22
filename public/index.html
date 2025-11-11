@@ -71,7 +71,8 @@
       <h3 style="margin:0 0 8px">Suggest a strong password (from your data)</h3>
       <div class="row">
         <input id="name" type="text" placeholder="Name (e.g., Ahmad)" />
-        <input id="birth" type="text" placeholder="Birthdate (e.g., 2001-05-14)" />
+        <!-- Only accept birth YEAR (YYYY) -->
+        <input id="birth" type="text" inputmode="numeric" maxlength="4" placeholder="YYYY" aria-label="Birth year (YYYY)" />
       </div>
       <div class="options">
         <label for="pwLength" style="margin-bottom:0;color:var(--muted);font-size:13px;font-weight:600">Suggested length:</label>
@@ -148,6 +149,11 @@
     return resp.json();
   }
 
+  // Enforce "year only" in the Birth field (numbers only, max 4)
+  birthEl.addEventListener('input', () => {
+    birthEl.value = birthEl.value.replace(/\D/g, '').slice(0, 4);
+  });
+
   // Check password (action 'test')
   checkBtn.addEventListener('click', async () => {
     const v = pw.value;
@@ -186,7 +192,12 @@
   suggestBtn.addEventListener('click', async () => {
     const name = nameEl.value.trim();
     const birth = birthEl.value.trim();
-    if (!name && !birth) return alert('Enter name and/or birthdate to seed suggestion');
+
+    // Birth must be year only (YYYY)
+    if (!/^\d{4}$/.test(birth)) {
+      return alert('Enter birth year only (YYYY), e.g., 2001');
+    }
+
     suggestBtn.disabled = true;
     suggestBtn.textContent = 'Generating...';
     suggestBox.style.display = 'none';
