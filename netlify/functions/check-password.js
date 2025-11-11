@@ -2,31 +2,44 @@ const crypto = require('crypto');
 const zxcvbn = require('zxcvbn');
 
 function generateFromSeed(seed, length = 16, useSymbols = true) {
-  const normalized = (seed || '').replace(/[^A-Za-z0-9]/g, '') || 'User';
-  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const lower = 'abcdefghijklmnopqrstuvwxyz';
-  const digits = '0123456789';
+  // seed is sent as `${name}|${birth}`
+  const [rawName = '', rawBirth = ''] = String(seed || '').split('|');
+
+  // Take letters from name (A–Z only). Fallback if empty.
+  let nameLetters = rawName.replace(/[^A-Za-z]/g, '') || 'User';
+
+  // Take digits from birth (year). Use last 2 digits; fallback "00" if missing.
+  const birthDigits = rawBirth.replace(/\D/g, '');
+  const year2 = (birthDigits.slice(-2) || '00');
+
+  // Simple mix: first 2 letters of name + last 2 digits of year (4 chars total)
+  // Example: Ahmad + 2001  =>  "Ah01"
+  const tag = (nameLetters.slice(0, 2) + year2).padEnd(4, 'X');
+
+  const upper   = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lower   = 'abcdefghijklmnopqrstuvwxyz';
+  const digits  = '0123456789';
   const symbols = '!@#$%^&*()-_=+[]{}<>?';
-  const pool = upper + lower + digits + (useSymbols ? symbols : '');
+  const pool    = upper + lower + digits + (useSymbols ? symbols : '');
 
-  // start with small portion of seed
-  let pw = normalized.slice(0, 3);
+  // Start password with the simple tag (name+year), rest is random
+  let pw = tag;
 
-  // fill to requested length
+  // Fill the rest with real randomness
   const need = Math.max(length - pw.length, 0);
-  const rnd = crypto.randomBytes(Math.max(need, 1));
+  const rnd  = crypto.randomBytes(Math.max(need, 4));
   for (let i = 0; i < need; i++) {
     pw += pool.charAt(rnd[i] % pool.length);
   }
 
-  // ensure classes
+  // Ensure character classes exist (keeps strong composition)
   if (!/[A-Z]/.test(pw)) pw = upper.charAt(rnd[0] % upper.length) + pw.slice(1);
   if (!/[a-z]/.test(pw)) pw = pw.slice(0,1) + lower.charAt(rnd[1] % lower.length) + pw.slice(2);
   if (!/[0-9]/.test(pw)) pw = pw.slice(0,2) + digits.charAt(rnd[2] % digits.length) + pw.slice(3);
   if (useSymbols && !/[!@#$%^&*()\-_=+\[\]{}<>?]/.test(pw))
     pw = pw.slice(0,3) + symbols.charAt(rnd[3] % symbols.length) + pw.slice(4);
 
-  // enforce exact length
+  // Enforce exact length
   pw = pw.replace(/\s/g, '');
   while (pw.length < length) {
     const extra = crypto.randomBytes(1)[0];
